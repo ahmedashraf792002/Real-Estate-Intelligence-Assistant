@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>DarGlobal & Wasalt Assistant</title>
+<style>
+  :root {
+    --bg: #f3f1ec; --panel: #fbfaf7; --ink: #1d2320; --muted: #66706a;
+    --line: #d9d5cb; --accent: #1f4d3f; --accent-ink: #f3f1ec; --user: #e4ebe6; --danger: #b3261e;
+    color-scheme: light dark;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #141815; --panel: #1b201d; --ink: #e9ece7; --muted: #8f9a93;
+            --line: #2d352f; --accent: #8fc7ae; --accent-ink: #10150f; --user: #243029; --danger: #f2b8b5; }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body { background: var(--bg); color: var(--ink); display: flex; justify-content: center;
+         font: 16px/1.55 "Iowan Old Style", Georgia, "Noto Naskh Arabic", "Segoe UI", serif; }
+  main { width: 100%; max-width: 780px; height: 100%; display: flex; flex-direction: column; padding: 0 16px; }
+  header { padding: 24px 0 14px; border-bottom: 1px solid var(--line); display: flex; gap: 12px; align-items: flex-start; justify-content: space-between; }
+  h1 { margin: 0; font-size: 1.5rem; font-weight: 600; letter-spacing: -.01em; }
+  header p { margin: 4px 0 0; color: var(--muted); font-size: .95rem; }
+  #new { font: 600 .9rem system-ui, sans-serif; color: var(--ink); background: transparent; white-space: nowrap;
+         border: 1px solid var(--line); border-radius: 10px; padding: 8px 14px; cursor: pointer; }
+  #new:hover { border-color: var(--accent); }
+  #log { flex: 1; overflow-y: auto; padding: 20px 0; display: flex; flex-direction: column; gap: 14px; }
+  .msg { max-width: 88%; padding: 10px 14px; border-radius: 10px; white-space: pre-wrap; overflow-wrap: anywhere; unicode-bidi: plaintext; }
+  .bot { background: var(--panel); border: 1px solid var(--line); align-self: flex-start; }
+  .me { background: var(--user); align-self: flex-end; }
+  .err { border-color: var(--danger); }
+  .msg a { color: var(--accent); }
+  .src { margin-top: 10px; font: .8rem/1.4 system-ui, sans-serif; color: var(--muted); white-space: normal; }
+  .src summary { cursor: pointer; }
+  .src a { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .hint { color: var(--muted); font-style: italic; }
+  .starters { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; white-space: normal; }
+  .starters button { font: .9rem system-ui, sans-serif; background: transparent; color: var(--ink);
+                     border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; cursor: pointer; }
+  .starters button:hover { border-color: var(--accent); }
+  form { display: flex; gap: 8px; padding: 12px 0 6px; border-top: 1px solid var(--line); }
+  textarea { flex: 1; resize: none; font: inherit; color: inherit; background: var(--panel);
+             border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; max-height: 140px; }
+  button.send { font: 600 .95rem system-ui, sans-serif; background: var(--accent); color: var(--accent-ink);
+                border: 0; border-radius: 10px; padding: 0 18px; cursor: pointer; }
+  button:disabled { opacity: .55; cursor: wait; }
+  footer { color: var(--muted); font: .78rem/1.4 system-ui, sans-serif; padding: 0 0 max(14px, env(safe-area-inset-bottom)); text-align: center; }
+  :focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+  .dots::after { content: "..."; animation: d 1s steps(4) infinite; }
+  @keyframes d { 0% { content: "" } 25% { content: "." } 50% { content: ".." } 75% { content: "..." } }
+  @media (prefers-reduced-motion: reduce) { .dots::after { animation: none; } }
+  #settings { display: flex; flex-wrap: wrap; gap: 8px; align-items: end; padding: 10px 0; }
+  #settings label { display: grid; gap: 3px; font: .78rem system-ui, sans-serif; color: var(--muted); }
+  #apiKey { width: 230px; }
+  #model { max-width: 260px; }
+  #settings input, #settings select { height: 36px; color: inherit; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; }
+  #removeKey { height: 36px; border: 1px solid var(--line); border-radius: 8px; background: transparent; color: var(--ink); cursor: pointer; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>DarGlobal & Wasalt Assistant</h1>
+      <p>Ask about projects, prices and locations.</p>
+    </div>
+    <button id="new" type="button">New chat</button>
+  </header>
+  <section id="log" aria-live="polite"></section>
+  <form id="form">
+    <textarea id="input" rows="1" maxlength="1000" placeholder="Ask a question" aria-label="Your question" required></textarea>
+    <button class="send" id="send" type="submit">Send</button>
+  </form>
+  <footer id="foot">Answers come from scraped public pages and may be out of date. Confirm prices with the seller.</footer>
+  <section id="settings" aria-label="Model settings">
+    <label>OpenRouter API key
+      <input id="apiKey" type="password" autocomplete="off" placeholder="sk-or-v1-...">
+    </label>
+    <label>Free model
+      <select id="model"><option value="">Use default free models</option></select>
+    </label>
+    <button id="removeKey" type="button">Remove key</button>
+  </section>
+</main>
+<script>
+const log = document.getElementById("log"), form = document.getElementById("form"),
+      input = document.getElementById("input"), send = document.getElementById("send");
+const KEY = "dg_chat_v1", SETTINGS_KEY = "dg_model_settings_v1";
+const STARTERS = ["What is Trump Tower Jeddah and when will it be completed?",
+                  "Tell me about Shams Riyadh and its prices",
+                  "Which Wasalt projects are developed by Dar Global?",
+                  "What are the cheapest projects on Wasalt?"];
+let history = [], settings = {};
+try { settings = JSON.parse(localStorage.getItem(SETTINGS_KEY) || "{}"); } catch (e) { settings = {}; }
+const apiKeyInput = document.getElementById("apiKey"), modelSelect = document.getElementById("model");
+apiKeyInput.value = settings.api_key || "";
+
+async function loadModels() {
+  const params = apiKeyInput.value.trim() ? "?api_key=" + encodeURIComponent(apiKeyInput.value.trim()) : "";
+  try {
+    const r = await fetch("/api/models" + params);
+    const data = await r.json();
+    modelSelect.innerHTML = '<option value="">Use default free models</option>';
+    (data.models || []).forEach(m => {
+      const id = typeof m === "string" ? m : m.id;
+      const option = document.createElement("option"); option.value = id;
+      option.textContent = id; modelSelect.appendChild(option);
+    });
+    if (settings.model) modelSelect.value = settings.model;
+  } catch (e) {}
+}
+
+const esc = s => s.replace(/[&<>"]/g, c => ({"&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;"}[c]));
+// tiny safe markdown: escape first, then bold + links
+const md = s => esc(s).replace(/\*\*(.+?)\*\*/g, "<b>$1</b>")
+  .replace(/(https?:\/\/[^\s<)]+)/g, '<a href="$1" target="_blank" rel="noopener noreferrer">$1</a>');
+
+function add(cls, html) {
+  const el = document.createElement("div");
+  el.className = "msg " + cls; el.innerHTML = html;
+  log.appendChild(el); log.scrollTop = log.scrollHeight; return el;
+}
+function addSources(el, sources) {
+  if (!sources || !sources.length) return;
+  const d = document.createElement("details"); d.className = "src";
+  d.innerHTML = "<summary>Sources (" + sources.length + ")</summary>" + sources.map(s =>
+    '<a href="' + esc(s.url) + '" target="_blank" rel="noopener noreferrer">' + esc(s.source + " · " + s.title) + "</a>").join("");
+  el.appendChild(d);
+}
+function save() { try { localStorage.setItem(KEY, JSON.stringify(history)); } catch (e) {} }
+
+function newChat() {
+  history = []; log.innerHTML = ""; save();
+  const w = add("bot", 'Hello! I can answer questions about DarGlobal projects and the projects and listings on Wasalt.<div class="starters"></div>');
+  STARTERS.forEach(t => { const b = document.createElement("button"); b.type = "button"; b.textContent = t;
+    b.onclick = () => ask(t); w.querySelector(".starters").appendChild(b); });
+  input.focus();
+}
+
+function restore() {
+  try { history = JSON.parse(localStorage.getItem(KEY) || "[]"); } catch (e) { history = []; }
+  if (!history.length) return newChat();
+  history.forEach(m => add(m.role === "user" ? "me" : "bot", m.role === "user" ? esc(m.content) : md(m.content)));
+}
+
+async function ask(text) {
+  text = text.trim(); if (!text || send.disabled) return;
+  const starters = log.querySelector(".starters"); if (starters) log.innerHTML = "";
+  add("me", esc(text)); history.push({role: "user", content: text});
+  input.value = ""; input.style.height = "auto"; send.disabled = true;
+  const bubble = add("bot", '<span class="hint dots">Searching the sources</span>');
+  let out = "", sources = [];
+  try {
+    const r = await fetch("/api/chat", {method: "POST", headers: {"Content-Type": "application/json"}, body: JSON.stringify({messages: history, api_key: apiKeyInput.value.trim(), model: modelSelect.value})});
+    if (!r.ok) {
+      const e = await r.json().catch(() => ({}));
+      throw new Error(r.status === 429 ? "Too many requests. Wait a minute and try again." : (e.detail || "Server error (" + r.status + ")"));
+    }
+    const rd = r.body.getReader(), dec = new TextDecoder(); let buf = "";
+    for (;;) {
+      const {done, value} = await rd.read(); if (done) break;
+      buf += dec.decode(value, {stream: true});
+      let i; while ((i = buf.indexOf("\n\n")) >= 0) {
+        const line = buf.slice(0, i).trim(); buf = buf.slice(i + 2);
+        if (!line.startsWith("data:")) continue;
+        const ev = JSON.parse(line.slice(5));
+        if (ev.type === "sources") sources = ev.sources;
+        else if (ev.type === "delta") { out += ev.text; bubble.innerHTML = md(out); log.scrollTop = log.scrollHeight; }
+        else if (ev.type === "error") { out = out || ev.message; bubble.innerHTML = md(out); bubble.classList.add("err"); }
+      }
+    }
+  } catch (e) { out = out || e.message; bubble.innerHTML = esc(out); bubble.classList.add("err"); }
+  if (!out) { bubble.innerHTML = "No answer came back. Please try again."; bubble.classList.add("err"); }
+  else if (!bubble.classList.contains("err")) { history.push({role: "assistant", content: out}); addSources(bubble, sources); }
+  else history.pop();   // failed turn: drop the question so the next one is not confused by it
+  save(); send.disabled = false; input.focus();
+}
+
+apiKeyInput.addEventListener("change", () => {
+  settings.api_key = apiKeyInput.value.trim(); localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); loadModels();
+});
+modelSelect.addEventListener("change", () => {
+  settings.model = modelSelect.value; localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+});
+document.getElementById("removeKey").addEventListener("click", () => {
+  apiKeyInput.value = ""; settings.api_key = ""; settings.model = "";
+  modelSelect.value = ""; localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings)); loadModels();
+});
+form.addEventListener("submit", e => { e.preventDefault(); ask(input.value); });
+input.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); ask(input.value); } });
+input.addEventListener("input", () => { input.style.height = "auto"; input.style.height = input.scrollHeight + "px"; });
+document.getElementById("new").addEventListener("click", newChat);
+fetch("/health").then(r => r.json()).then(h => { if (h.data_snapshot) document.getElementById("foot").textContent += " Data snapshot: " + h.data_snapshot + "."; }).catch(() => {});
+restore();
+loadModels();
+</script>
+</body>
+</html>
